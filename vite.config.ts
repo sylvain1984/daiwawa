@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
-        name: '小当家',
-        short_name: '小当家',
+        name: '带娃',
+        short_name: '带娃',
         description: '家庭任务管理',
         theme_color: '#B5A9E0',
         background_color: '#faf9ff',
