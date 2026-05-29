@@ -15,14 +15,21 @@ const DEFAULT_FAMILY_DATA: FamilyData = {
   meta: { lastUpdatedBy: 'mom', lastUpdatedAt: new Date().toISOString() },
 }
 
+const ENV_TOKEN = (import.meta as unknown as { env: Record<string, string> }).env.VITE_GIST_TOKEN
+
 export function loadSettings(): LocalSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) return JSON.parse(raw) as LocalSettings
+    if (raw) {
+      const s = JSON.parse(raw) as LocalSettings
+      // Always prefer env token if available
+      if (ENV_TOKEN) s.gistToken = ENV_TOKEN
+      return s
+    }
   } catch {
     // ignore
   }
-  return { role: 'mom', remindersEnabled: false }
+  return { role: 'mom', gistToken: ENV_TOKEN, remindersEnabled: false }
 }
 
 export function saveSettings(s: LocalSettings): void {
