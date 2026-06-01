@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { FamilyData } from '../types'
 import { useFamilyData } from '../store/useFamily'
-import { loadSettings } from '../store/gist'
 import { today, mondayOf, formatDate } from '../utils/date'
 import { nanoid } from '../utils/nanoid'
 import ChildSection from '../components/ChildSection'
@@ -11,8 +10,6 @@ import type { FieldDef } from '../components/AddItemSheet'
 
 export default function HomePage() {
   const { data, syncing, lastSync, pull, mutate } = useFamilyData()
-  const settings = loadSettings()
-  const role = settings.role
   const todayStr = today()
   const weekStr = mondayOf()
 
@@ -38,7 +35,7 @@ export default function HomePage() {
             ? { ...h, done: !h.done, doneAt: !h.done ? now : undefined, updatedAt: now }
             : h
         ),
-        meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+        meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
       }
     })
   }
@@ -53,7 +50,7 @@ export default function HomePage() {
             ? { ...t, done: !t.done, doneAt: !t.done ? now : undefined, updatedAt: now }
             : t
         ),
-        meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+        meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
       }
     })
   }
@@ -68,13 +65,17 @@ export default function HomePage() {
             ? { ...t, done: !t.done, doneAt: !t.done ? now : undefined, updatedAt: now }
             : t
         ),
-        meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+        meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
       }
     })
   }
 
+  const existingSubjects = [...new Set(
+    data.homework.map((h) => h.subject).filter(Boolean) as string[]
+  )]
+
   const homeworkFields: FieldDef[] = [
-    { key: 'subject', label: '科目', type: 'text' },
+    { key: 'subject', label: '科目', type: 'tagselect', options: existingSubjects },
     { key: 'title', label: '作业内容', type: 'text', required: true },
   ]
 
@@ -91,12 +92,12 @@ export default function HomePage() {
           subject: values.subject || undefined,
           title: values.title,
           done: false,
-          createdBy: role,
+          createdBy: 'user',
           createdAt: now,
           updatedAt: now,
         },
       ],
-      meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+      meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
     }))
     setAddHomeworkChild(null)
   }
@@ -132,7 +133,6 @@ export default function HomePage() {
         )
         const childTasks = data.assignedTasks.filter((t) => {
           if (t.done) return false
-          if (role === 'dad' && t.assignee !== 'dad') return false
           return t.childId === child.id || !t.childId
         })
 
@@ -167,20 +167,18 @@ export default function HomePage() {
               <CheckItem
                 key={t.id}
                 title={t.title}
-                subtitle={`${t.assignee === 'dad' ? '爸爸' : '妈妈'}的任务`}
+                subtitle="任务"
                 done={t.done}
                 onToggle={() => toggleTask(t.id)}
                 accentColor={child.color}
               />
             ))}
-            {role === 'mom' && (
-              <button
-                onClick={() => setAddHomeworkChild(child.id)}
-                className="w-full text-left text-xs text-gray-400 px-4 py-2 rounded-xl bg-white/60 border border-dashed border-gray-200 mt-1"
-              >
-                + 今日作业
-              </button>
-            )}
+            <button
+              onClick={() => setAddHomeworkChild(child.id)}
+              className="w-full text-left text-xs text-gray-400 px-4 py-2 rounded-xl bg-white/60 border border-dashed border-gray-200 mt-1"
+            >
+              + 今日作业
+            </button>
           </ChildSection>
         )
       })}
@@ -190,7 +188,6 @@ export default function HomePage() {
         const globalTasks = data.assignedTasks.filter((t) => {
           if (t.done) return false
           if (t.childId) return false
-          if (role === 'dad' && t.assignee !== 'dad') return false
           return true
         })
         if (globalTasks.length === 0) return null
@@ -204,7 +201,7 @@ export default function HomePage() {
                 <CheckItem
                   key={t.id}
                   title={t.title}
-                  subtitle={`${t.assignee === 'dad' ? '爸爸' : '妈妈'}的任务`}
+                  subtitle="任务"
                   done={t.done}
                   onToggle={() => toggleTask(t.id)}
                 />

@@ -12,24 +12,26 @@ const DEFAULT_FAMILY_DATA: FamilyData = {
   weeklyTodos: [],
   homework: [],
   assignedTasks: [],
-  meta: { lastUpdatedBy: 'mom', lastUpdatedAt: new Date().toISOString() },
+  meta: { lastUpdatedBy: 'user', lastUpdatedAt: new Date().toISOString() },
 }
 
-const ENV_TOKEN = (import.meta as unknown as { env: Record<string, string> }).env.VITE_GIST_TOKEN
+const ENV = (import.meta as unknown as { env: Record<string, string> }).env
+const ENV_TOKEN = ENV.VITE_GIST_TOKEN
+const ENV_GIST_ID = ENV.VITE_GIST_ID
 
 export function loadSettings(): LocalSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) {
       const s = JSON.parse(raw) as LocalSettings
-      // Always prefer env token if available
       if (ENV_TOKEN) s.gistToken = ENV_TOKEN
+      if (ENV_GIST_ID) s.gistId = ENV_GIST_ID
       return s
     }
   } catch {
     // ignore
   }
-  return { role: 'mom', gistToken: ENV_TOKEN, remindersEnabled: false }
+  return { gistToken: ENV_TOKEN, gistId: ENV_GIST_ID, remindersEnabled: false }
 }
 
 export function saveSettings(s: LocalSettings): void {

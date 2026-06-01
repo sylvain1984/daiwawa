@@ -1,3 +1,6 @@
 /// <reference types="vite/client" />
-interface ImportMetaEnv {}
+interface ImportMetaEnv {
+  readonly VITE_GIST_TOKEN?: string
+  readonly VITE_GIST_ID?: string
+}
 interface ImportMeta { readonly env: ImportMetaEnv }

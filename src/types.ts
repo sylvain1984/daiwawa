@@ -12,7 +12,7 @@ export interface WeeklyTodo {
   title: string
   done: boolean
   doneAt?: string
-  createdBy: 'mom' | 'dad'
+  createdBy: string
   createdAt: string
   updatedAt: string
 }
@@ -25,7 +25,7 @@ export interface Homework {
   title: string
   done: boolean
   doneAt?: string
-  createdBy: 'mom' | 'dad'
+  createdBy: string
   createdAt: string
   updatedAt: string
 }
@@ -34,11 +34,11 @@ export interface AssignedTask {
   id: string
   title: string
   childId?: string
-  assignee: 'dad' | 'mom'
+  assignee: string
   dueDate?: string
   done: boolean
   doneAt?: string
-  createdBy: 'mom' | 'dad'
+  createdBy: string
   createdAt: string
   updatedAt: string
 }
@@ -48,11 +48,10 @@ export interface FamilyData {
   weeklyTodos: WeeklyTodo[]
   homework: Homework[]
   assignedTasks: AssignedTask[]
-  meta: { lastUpdatedBy: 'mom' | 'dad'; lastUpdatedAt: string }
+  meta: { lastUpdatedBy: string; lastUpdatedAt: string }
 }
 
 export interface LocalSettings {
-  role: 'mom' | 'dad'
   gistId?: string
   gistToken?: string
   remindersEnabled: boolean

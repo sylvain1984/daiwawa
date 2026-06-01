@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 export interface FieldDef {
   key: string
   label: string
-  type: 'text' | 'date' | 'select'
+  type: 'text' | 'date' | 'select' | 'tagselect'
   options?: string[]
   required?: boolean
 }
@@ -24,7 +24,6 @@ export default function AddItemSheet({ title, fields, onSave, onClose }: Props) 
     return init
   })
 
-  // Prevent body scroll when sheet is open
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
@@ -50,7 +49,36 @@ export default function AddItemSheet({ title, fields, onSave, onClose }: Props) 
           {fields.map((f) => (
             <div key={f.key}>
               <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
-              {f.type === 'select' && f.options ? (
+
+              {f.type === 'tagselect' ? (
+                <div className="space-y-2">
+                  {f.options && f.options.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {f.options.map((o) => (
+                        <button
+                          key={o}
+                          type="button"
+                          onClick={() => setValues((v) => ({ ...v, [f.key]: v[f.key] === o ? '' : o }))}
+                          className="px-3 py-1 rounded-full text-xs font-medium border transition-all"
+                          style={values[f.key] === o
+                            ? { backgroundColor: '#9b8ec4', borderColor: '#9b8ec4', color: '#fff' }
+                            : { backgroundColor: '#f9fafb', borderColor: '#e5e7eb', color: '#6b7280' }
+                          }
+                        >
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-purple-300"
+                    placeholder="或输入新科目…"
+                    value={values[f.key]}
+                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                  />
+                </div>
+              ) : f.type === 'select' && f.options ? (
                 <select
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:border-purple-300"
                   value={values[f.key]}

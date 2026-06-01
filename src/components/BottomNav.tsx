@@ -10,7 +10,6 @@ const TABS: { id: PageType; label: string; icon: string }[] = [
   { id: 'homework', label: '作业', icon: '📚' },
   { id: 'weekly', label: '本周', icon: '📋' },
   { id: 'assigned', label: '任务', icon: '✅' },
-  { id: 'settings', label: '设置', icon: '⚙️' },
 ]
 
 export default function BottomNav({ current, onChange }: Props) {

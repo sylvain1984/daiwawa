@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { FamilyData } from '../types'
 import { useFamilyData } from '../store/useFamily'
-import { loadSettings } from '../store/gist'
 import { today, addDays, formatDate } from '../utils/date'
 import { nanoid } from '../utils/nanoid'
 import ChildSection from '../components/ChildSection'
@@ -11,12 +10,14 @@ import type { FieldDef } from '../components/AddItemSheet'
 
 export default function HomeworkPage() {
   const { data, mutate } = useFamilyData()
-  const settings = loadSettings()
-  const role = settings.role
   const [dateStr, setDateStr] = useState(() => today())
   const [addForChild, setAddForChild] = useState<string | null>(null)
 
   const sortedChildren = [...data.children].sort((a, b) => a.order - b.order)
+
+  const existingSubjects = [...new Set(
+    data.homework.map((h) => h.subject).filter(Boolean) as string[]
+  )]
 
   function toggleHomework(id: string) {
     mutate((d: FamilyData) => {
@@ -28,7 +29,7 @@ export default function HomeworkPage() {
             ? { ...h, done: !h.done, doneAt: !h.done ? now : undefined, updatedAt: now }
             : h
         ),
-        meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+        meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
       }
     })
   }
@@ -39,13 +40,13 @@ export default function HomeworkPage() {
       return {
         ...d,
         homework: d.homework.filter((h) => h.id !== id),
-        meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+        meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
       }
     })
   }
 
   const fields: FieldDef[] = [
-    { key: 'subject', label: '科目', type: 'text' },
+    { key: 'subject', label: '科目', type: 'tagselect', options: existingSubjects },
     { key: 'title', label: '作业内容', type: 'text', required: true },
   ]
 
@@ -62,19 +63,18 @@ export default function HomeworkPage() {
           subject: values.subject || undefined,
           title: values.title,
           done: false,
-          createdBy: role,
+          createdBy: 'user',
           createdAt: now,
           updatedAt: now,
         },
       ],
-      meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+      meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
     }))
     setAddForChild(null)
   }
 
   return (
     <div className="pt-safe-top pb-24 px-4">
-      {/* Header + date nav */}
       <div className="flex items-center justify-between py-3">
         <h1 className="text-lg font-bold text-gray-800">作业</h1>
       </div>
@@ -110,18 +110,16 @@ export default function HomeworkPage() {
                 subtitle={h.subject}
                 done={h.done}
                 onToggle={() => toggleHomework(h.id)}
-                onDelete={role === 'mom' ? () => deleteHomework(h.id) : undefined}
+                onDelete={() => deleteHomework(h.id)}
                 accentColor={child.color}
               />
             ))}
-            {role === 'mom' && (
-              <button
-                onClick={() => setAddForChild(child.id)}
-                className="w-full text-left text-xs text-gray-400 px-4 py-2 rounded-xl bg-white/60 border border-dashed border-gray-200 mt-1"
-              >
-                + 添加作业
-              </button>
-            )}
+            <button
+              onClick={() => setAddForChild(child.id)}
+              className="w-full text-left text-xs text-gray-400 px-4 py-2 rounded-xl bg-white/60 border border-dashed border-gray-200 mt-1"
+            >
+              + 添加作业
+            </button>
           </ChildSection>
         )
       })}

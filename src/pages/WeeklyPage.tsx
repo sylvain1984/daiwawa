@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { FamilyData } from '../types'
 import { useFamilyData } from '../store/useFamily'
-import { loadSettings } from '../store/gist'
 import { mondayOf, addDays, formatWeek, formatDate } from '../utils/date'
 import { nanoid } from '../utils/nanoid'
 import ChildSection from '../components/ChildSection'
@@ -11,8 +10,6 @@ import type { FieldDef } from '../components/AddItemSheet'
 
 export default function WeeklyPage() {
   const { data, mutate } = useFamilyData()
-  const settings = loadSettings()
-  const role = settings.role
   const [weekOf, setWeekOf] = useState(() => mondayOf())
   const [addForChild, setAddForChild] = useState<string | null>(null)
 
@@ -33,7 +30,7 @@ export default function WeeklyPage() {
             ? { ...t, done: !t.done, doneAt: !t.done ? now : undefined, updatedAt: now }
             : t
         ),
-        meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+        meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
       }
     })
   }
@@ -44,7 +41,7 @@ export default function WeeklyPage() {
       return {
         ...d,
         weeklyTodos: d.weeklyTodos.filter((t) => t.id !== id),
-        meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+        meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
       }
     })
   }
@@ -65,12 +62,12 @@ export default function WeeklyPage() {
           weekOf,
           title: values.title,
           done: false,
-          createdBy: role,
+          createdBy: 'user',
           createdAt: now,
           updatedAt: now,
         },
       ],
-      meta: { lastUpdatedBy: role, lastUpdatedAt: now },
+      meta: { lastUpdatedBy: 'user', lastUpdatedAt: now },
     }))
     setAddForChild(null)
   }
@@ -81,7 +78,6 @@ export default function WeeklyPage() {
         <h1 className="text-lg font-bold text-gray-800">本周</h1>
       </div>
 
-      {/* Week nav */}
       <div className="flex items-center justify-between mb-4 bg-white rounded-xl px-4 py-2 shadow-sm">
         <button onClick={prevWeek} className="text-gray-400 px-2 py-1 text-lg">‹</button>
         <div className="text-center">
@@ -108,18 +104,16 @@ export default function WeeklyPage() {
                 title={t.title}
                 done={t.done}
                 onToggle={() => toggleTodo(t.id)}
-                onDelete={role === 'mom' ? () => deleteTodo(t.id) : undefined}
+                onDelete={() => deleteTodo(t.id)}
                 accentColor={child.color}
               />
             ))}
-            {role === 'mom' && (
-              <button
-                onClick={() => setAddForChild(child.id)}
-                className="w-full text-left text-xs text-gray-400 px-4 py-2 rounded-xl bg-white/60 border border-dashed border-gray-200 mt-1"
-              >
-                + 添加本周待办
-              </button>
-            )}
+            <button
+              onClick={() => setAddForChild(child.id)}
+              className="w-full text-left text-xs text-gray-400 px-4 py-2 rounded-xl bg-white/60 border border-dashed border-gray-200 mt-1"
+            >
+              + 添加本周待办
+            </button>
           </ChildSection>
         )
       })}
