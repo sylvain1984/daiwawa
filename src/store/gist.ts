@@ -1,8 +1,10 @@
 import type { FamilyData, LocalSettings } from '../types'
 
-// Self-hosted sync: same-origin /api/data on the server, guarded by a shared token.
-// (Replaces the previous GitHub Gist backend.) Works fully offline when no token is set.
+// Self-hosted sync: same-origin /api/data on the server. The site is gated by
+// HTTP Basic Auth (nginx); nginx also injects the backend Bearer token when it
+// proxies /api, so the browser's basic-auth header is the only one we send.
 const API = '/api/data'
+
 const SETTINGS_KEY = 'daiwawa_settings'
 const CACHE_KEY = 'daiwawa_cache'
 const LAST_SYNC_KEY = 'daiwawa_last_sync'
@@ -18,29 +20,18 @@ const DEFAULT_FAMILY_DATA: FamilyData = {
   meta: { lastUpdatedBy: 'user', lastUpdatedAt: new Date().toISOString() },
 }
 
-const ENV = (import.meta as unknown as { env: Record<string, string> }).env
-const ENV_TOKEN = ENV.VITE_SYNC_TOKEN
-
 export function loadSettings(): LocalSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) {
-      const s = JSON.parse(raw) as LocalSettings
-      if (!s.syncToken && ENV_TOKEN) s.syncToken = ENV_TOKEN
-      return s
-    }
+    if (raw) return JSON.parse(raw) as LocalSettings
   } catch {
     // ignore
   }
-  return { syncToken: ENV_TOKEN, remindersEnabled: false }
+  return { remindersEnabled: false }
 }
 
 export function saveSettings(s: LocalSettings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s))
-}
-
-function getToken(): string {
-  return (loadSettings().syncToken || '').trim()
 }
 
 export function getCachedData(): FamilyData {
@@ -58,12 +49,9 @@ function setCache(data: FamilyData): void {
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString())
 }
 
-/** Fetch latest data. With a token: from the server (404 -> default). Without: from local cache. */
+/** Fetch latest data from the server (404 -> seed default). Falls back to cache on error. */
 export async function pullData(): Promise<FamilyData> {
-  const token = getToken()
-  if (!token) return getCachedData()
-
-  const res = await fetch(API, { headers: { Authorization: `Bearer ${token}` } })
+  const res = await fetch(API)
   if (res.status === 404) {
     const data = getCachedData()
     setCache(data)
@@ -75,23 +63,20 @@ export async function pullData(): Promise<FamilyData> {
   return data
 }
 
-/** Apply a mutation. With a token: read-latest -> mutate -> push. Without: mutate local cache only. */
+/** read-latest -> mutate -> push back to the server. */
 export async function mutateData(
   mutator: (data: FamilyData) => FamilyData
 ): Promise<FamilyData> {
-  const token = getToken()
   const latest = await pullData()
   const result = mutator(latest)
   setCache(result)
 
-  if (token) {
-    const res = await fetch(API, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(result),
-    })
-    if (!res.ok) throw new Error(`同步推送失败: ${res.status}`)
-  }
+  const res = await fetch(API, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(result),
+  })
+  if (!res.ok) throw new Error(`同步推送失败: ${res.status}`)
   return result
 }
 

@@ -52,6 +52,5 @@ export interface FamilyData {
 }
 
 export interface LocalSettings {
-  syncToken?: string
   remindersEnabled: boolean
 }
