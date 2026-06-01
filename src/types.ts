@@ -52,7 +52,6 @@ export interface FamilyData {
 }
 
 export interface LocalSettings {
-  gistId?: string
-  gistToken?: string
+  syncToken?: string
   remindersEnabled: boolean
 }

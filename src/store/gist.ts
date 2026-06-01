@@ -1,5 +1,8 @@
 import type { FamilyData, LocalSettings } from '../types'
 
+// Self-hosted sync: same-origin /api/data on the server, guarded by a shared token.
+// (Replaces the previous GitHub Gist backend.) Works fully offline when no token is set.
+const API = '/api/data'
 const SETTINGS_KEY = 'daiwawa_settings'
 const CACHE_KEY = 'daiwawa_cache'
 const LAST_SYNC_KEY = 'daiwawa_last_sync'
@@ -16,26 +19,28 @@ const DEFAULT_FAMILY_DATA: FamilyData = {
 }
 
 const ENV = (import.meta as unknown as { env: Record<string, string> }).env
-const ENV_TOKEN = ENV.VITE_GIST_TOKEN
-const ENV_GIST_ID = ENV.VITE_GIST_ID
+const ENV_TOKEN = ENV.VITE_SYNC_TOKEN
 
 export function loadSettings(): LocalSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) {
       const s = JSON.parse(raw) as LocalSettings
-      if (ENV_TOKEN) s.gistToken = ENV_TOKEN
-      if (ENV_GIST_ID) s.gistId = ENV_GIST_ID
+      if (!s.syncToken && ENV_TOKEN) s.syncToken = ENV_TOKEN
       return s
     }
   } catch {
     // ignore
   }
-  return { gistToken: ENV_TOKEN, gistId: ENV_GIST_ID, remindersEnabled: false }
+  return { syncToken: ENV_TOKEN, remindersEnabled: false }
 }
 
 export function saveSettings(s: LocalSettings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s))
+}
+
+function getToken(): string {
+  return (loadSettings().syncToken || '').trim()
 }
 
 export function getCachedData(): FamilyData {
@@ -53,79 +58,40 @@ function setCache(data: FamilyData): void {
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString())
 }
 
-function getGistHeaders(token: string): HeadersInit {
-  return {
-    Authorization: `Bearer ${token}`,
-    Accept: 'application/vnd.github+json',
-    'Content-Type': 'application/json',
-  }
-}
-
+/** Fetch latest data. With a token: from the server (404 -> default). Without: from local cache. */
 export async function pullData(): Promise<FamilyData> {
-  const settings = loadSettings()
-  if (!settings.gistId || !settings.gistToken) {
-    throw new Error('未配置 Gist，请先在设置中填写 Token 和 Gist ID')
-  }
+  const token = getToken()
+  if (!token) return getCachedData()
 
-  const res = await fetch(`https://api.github.com/gists/${settings.gistId}`, {
-    headers: getGistHeaders(settings.gistToken),
-  })
-
-  if (!res.ok) {
-    throw new Error(`Gist 拉取失败: ${res.status} ${res.statusText}`)
-  }
-
-  const gist = await res.json() as {
-    files: Record<string, { content?: string }>
-  }
-
-  const file = gist.files['family-data.json']
-  if (!file || !file.content) {
-    // File doesn't exist yet, return default
-    const data = { ...DEFAULT_FAMILY_DATA }
+  const res = await fetch(API, { headers: { Authorization: `Bearer ${token}` } })
+  if (res.status === 404) {
+    const data = getCachedData()
     setCache(data)
     return data
   }
-
-  const data = JSON.parse(file.content) as FamilyData
+  if (!res.ok) throw new Error(`同步拉取失败: ${res.status}`)
+  const data = (await res.json()) as FamilyData
   setCache(data)
   return data
 }
 
+/** Apply a mutation. With a token: read-latest -> mutate -> push. Without: mutate local cache only. */
 export async function mutateData(
   mutator: (data: FamilyData) => FamilyData
 ): Promise<FamilyData> {
-  const settings = loadSettings()
-  if (!settings.gistId || !settings.gistToken) {
-    throw new Error('未配置 Gist，请先在设置中填写 Token 和 Gist ID')
-  }
-
-  // Step 1: GET latest
+  const token = getToken()
   const latest = await pullData()
-
-  // Step 2: Apply mutator
   const result = mutator(latest)
-
-  // Step 3: PATCH back
-  const patchRes = await fetch(`https://api.github.com/gists/${settings.gistId}`, {
-    method: 'PATCH',
-    headers: getGistHeaders(settings.gistToken),
-    body: JSON.stringify({
-      files: {
-        'family-data.json': {
-          content: JSON.stringify(result),
-        },
-      },
-      public: false,
-    }),
-  })
-
-  if (!patchRes.ok) {
-    throw new Error(`Gist 推送失败: ${patchRes.status} ${patchRes.statusText}`)
-  }
-
-  // Step 4: Update cache
   setCache(result)
+
+  if (token) {
+    const res = await fetch(API, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(result),
+    })
+    if (!res.ok) throw new Error(`同步推送失败: ${res.status}`)
+  }
   return result
 }
 
