@@ -1,13 +1,31 @@
 import type { FamilyData, LocalSettings } from '../types'
 
-// Self-hosted sync: same-origin /api/data on the server. The site is gated by
-// HTTP Basic Auth (nginx); nginx also injects the backend Bearer token when it
-// proxies /api, so the browser's basic-auth header is the only one we send.
+// Self-hosted sync: same-origin /api/data on the server, guarded by a shared
+// password (the in-app login). The password is sent as the Bearer token and
+// also namespaces the stored data. It lives only in this device's localStorage.
 const API = '/api/data'
-
+const TOKEN_KEY = 'daiwawa_token'
 const SETTINGS_KEY = 'daiwawa_settings'
 const CACHE_KEY = 'daiwawa_cache'
 const LAST_SYNC_KEY = 'daiwawa_last_sync'
+
+export function getToken(): string {
+  return localStorage.getItem(TOKEN_KEY) || ''
+}
+
+export function setToken(token: string): void {
+  const t = token.trim()
+  if (t) localStorage.setItem(TOKEN_KEY, t)
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+export function hasToken(): boolean {
+  return !!getToken()
+}
+
+function authHeader(): HeadersInit {
+  return { Authorization: `Bearer ${getToken()}` }
+}
 
 const DEFAULT_FAMILY_DATA: FamilyData = {
   children: [
@@ -49,9 +67,10 @@ function setCache(data: FamilyData): void {
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString())
 }
 
-/** Fetch latest data from the server (404 -> seed default). Falls back to cache on error. */
+/** Fetch latest data from the server (404 -> seed default). Falls back to cache without a token. */
 export async function pullData(): Promise<FamilyData> {
-  const res = await fetch(API)
+  if (!hasToken()) return getCachedData()
+  const res = await fetch(API, { headers: authHeader() })
   if (res.status === 404) {
     const data = getCachedData()
     setCache(data)
@@ -71,12 +90,14 @@ export async function mutateData(
   const result = mutator(latest)
   setCache(result)
 
-  const res = await fetch(API, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(result),
-  })
-  if (!res.ok) throw new Error(`同步推送失败: ${res.status}`)
+  if (hasToken()) {
+    const res = await fetch(API, {
+      method: 'PUT',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(result),
+    })
+    if (!res.ok) throw new Error(`同步推送失败: ${res.status}`)
+  }
   return result
 }
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import BottomNav from './components/BottomNav'
+import LoginGate from './components/LoginGate'
 import HomePage from './pages/HomePage'
 import HomeworkPage from './pages/HomeworkPage'
 import WeeklyPage from './pages/WeeklyPage'
@@ -20,9 +21,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main>{renderPage()}</main>
-      <BottomNav current={page} onChange={setPage} />
-    </div>
+    <LoginGate>
+      <div className="min-h-screen bg-gray-50">
+        <main>{renderPage()}</main>
+        <BottomNav current={page} onChange={setPage} />
+      </div>
+    </LoginGate>
   )
 }
